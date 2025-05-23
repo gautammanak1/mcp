@@ -18,7 +18,7 @@ except ImportError:
     raise ImportError("fastmcp package is required. Install it with 'pip install fastmcp'")
 
 # Import schema utilities
-from asi_mcp.schema_utils import get_schema_from_tool
+from software_developer.schema_utils import get_schema_from_tool
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

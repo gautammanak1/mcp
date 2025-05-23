@@ -12,12 +12,12 @@ from typing import Dict, Optional, Any, Callable
 from uagents import Agent, Context, Protocol, Model
 from uagents.setup import fund_agent_if_low
 
-from asi_mcp.chat_handler import ChatHandler
-from asi_mcp.command_parser import CommandParser
-from asi_mcp.session_manager import SessionManager
-from asi_mcp.mcp_client import MCPClient
-from asi_mcp.result_formatter import ResultFormatter
-from asi_mcp.chat_proto import chat_proto, set_agent_instance
+from software_developer.chat_handler import ChatHandler
+from software_developer.command_parser import CommandParser
+from software_developer.session_manager import SessionManager
+from software_developer.mcp_client import MCPClient
+from software_developer.result_formatter import ResultFormatter
+from software_developer.chat_proto import chat_proto, set_agent_instance
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
