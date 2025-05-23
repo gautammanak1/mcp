@@ -9,10 +9,10 @@ import asyncio
 import logging
 from typing import Dict, Optional, Any, List
 
-from software_developer.command_parser import CommandParser, CommandType, ParsedCommand
-from software_developer.session_manager import SessionManager
-from software_developer.result_formatter import ResultFormatter
-from software_developer.schema_utils import validate_schema_structure, extract_required_params, extract_optional_params_with_defaults
+from asi_mcp.command_parser import CommandParser, CommandType, ParsedCommand
+from asi_mcp.session_manager import SessionManager
+from asi_mcp.result_formatter import ResultFormatter
+from asi_mcp.schema_utils import validate_schema_structure, extract_required_params, extract_optional_params_with_defaults
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

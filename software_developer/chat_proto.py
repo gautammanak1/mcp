@@ -121,7 +121,9 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
                 # Process the command
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message(command, sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    # Extract Markdown string if response is a dictionary
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue
@@ -130,7 +132,8 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
             if re.match(DISCONNECT_PATTERN, text_lower, re.IGNORECASE):
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message("!disconnect", sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue
@@ -139,7 +142,8 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
             if re.match(LIST_PATTERN, text_lower, re.IGNORECASE):
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message("!list", sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue
@@ -157,7 +161,8 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
                 
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message(command, sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue
@@ -166,7 +171,8 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
             if re.match(STATUS_PATTERN, text_lower, re.IGNORECASE):
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message("!status", sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue
@@ -184,7 +190,8 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
                 
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message(command, sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue
@@ -201,7 +208,8 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
                 
                 if mcp_agent_instance:
                     response = await mcp_agent_instance.process_message(command, sender)
-                    await ctx.send(sender, create_text_chat(response))
+                    response_text = response.get("markdown", str(response)) if isinstance(response, dict) else str(response)
+                    await ctx.send(sender, create_text_chat(response_text))
                 else:
                     await ctx.send(sender, create_text_chat("Error: Agent instance not available"))
                 continue

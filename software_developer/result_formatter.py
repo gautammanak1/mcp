@@ -10,13 +10,14 @@ formatting across all methods.
 import json
 import logging
 from typing import Dict, List, Any, Optional, Union
+from tabulate import tabulate
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class ResultFormatter:
-    """Formatter for MCP responses and other outputs in Markdown format."""
+    """Formatter for MCP responses and other outputs in Markdown and JSON formats."""
     
     def __init__(self, max_json_depth: int = 3, indent_size: int = 2):
         """
@@ -30,12 +31,82 @@ class ResultFormatter:
         self.indent_size = indent_size
     
     def _markdown_code_block(self, content: str, lang: str = "json") -> str:
-        """Helper to wrap content in a Markdown code block."""
+        """Wrap content in a Markdown code block."""
         return f"```{lang}\n{content}\n```"
+
+    def _handle_text_content(self, data: Any) -> Any:
+        """Convert TextContent objects or other non-serializable objects to a serializable format."""
+        if hasattr(data, '__class__') and data.__class__.__name__ == 'TextContent':
+            # Extract the text attribute from TextContent
+            text_content = getattr(data, 'text', str(data))
+            # Try to parse as JSON if possible
+            try:
+                return json.loads(text_content)
+            except json.JSONDecodeError:
+                return text_content
+        elif isinstance(data, dict):
+            return {key: self._handle_text_content(value) for key, value in data.items()}
+        elif isinstance(data, list):
+            return [self._handle_text_content(item) for item in data]
+        return data
+
+    def _flatten_dict(self, d: Dict, parent_key: str = '', sep: str = '.') -> Dict:
+        """Flatten a nested dictionary for table display."""
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(self._flatten_dict(v, new_key, sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
+
+    def json_to_markdown(self, json_data: Union[str, Dict, List]) -> str:
+        """
+        Converts a JSON string or dictionary to a Markdown table.
+        
+        Args:
+            json_data: JSON string or parsed JSON data (dict or list)
+        
+        Returns:
+            Markdown table as a string
+        """
+        try:
+            if isinstance(json_data, str):
+                json_data = json.loads(json_data)
+            elif not isinstance(json_data, (dict, list)):
+                return "Invalid JSON data."
+            
+            if isinstance(json_data, dict):
+                # Flatten nested dictionary for table display
+                json_data = self._flatten_dict(json_data)
+                json_data = [json_data]
+            elif not isinstance(json_data, list):
+                json_data = [json_data]
+            
+            if not json_data:
+                return "No data to display."
+            
+            table = []
+            headers = []
+            for item in json_data:
+                if isinstance(item, dict):
+                    if not headers:
+                        headers = list(item.keys())
+                    table.append([item.get(h, '') for h in headers])
+                else:
+                    table.append([str(item)])
+                    headers = ['Value']
+            
+            markdown_table = tabulate(table, headers=headers, tablefmt="pipe")
+            return markdown_table
+        except Exception as e:
+            logger.error(f"Error converting JSON to Markdown table: {e}")
+            return f"Error generating table: {str(e)}"
 
     def _json_to_markdown(self, data: Union[Dict, List, Any], depth: int = 0, prefix: str = "") -> str:
         """
-        Convert a JSON object or array into a readable Markdown format.
+        Convert a JSON object or array into a readable Markdown format (bullet-list style).
 
         Args:
             data: The JSON data to convert
@@ -45,16 +116,16 @@ class ResultFormatter:
         Returns:
             Markdown-formatted string
         """
+        data = self._handle_text_content(data)
         if depth >= self.max_json_depth:
             return f"{prefix}*Truncated due to depth limit*"
 
         if isinstance(data, dict):
             markdown = ""
             for key, value in data.items():
-                # Handle specific keys with custom formatting
                 if key == "text" and isinstance(value, str):
-                    # Preserve the 'text' field as-is since it may contain Markdown
-                    markdown += f"{prefix}**{key.capitalize()}:**\n{value}\n\n"
+                    truncated_value = value[:200] + "..." if len(value) > 200 else value
+                    markdown += f"{prefix}**{key.capitalize()}:**\n{truncated_value}\n\n"
                 elif key == "usedTools" and isinstance(value, list):
                     markdown += f"{prefix}**Tools Used:**\n"
                     for idx, tool in enumerate(value, 1):
@@ -64,20 +135,19 @@ class ResultFormatter:
                             tool_output = tool.get("toolOutput", "No output")
                             markdown += f"{prefix}- **Tool {idx}:** `{tool_name}`\n"
                             if isinstance(tool_input, dict):
-                                markdown += f"{prefix}  - **Input:** {self._json_to_markdown(tool_input, depth + 1, prefix + '  ')}\n"
+                                markdown += f"{prefix}  - **Input:**\n{self._json_to_markdown(tool_input, depth + 1, prefix + '    ')}\n"
                             if isinstance(tool_output, str) and tool_output.startswith("["):
                                 markdown += f"{prefix}  - **Output:** *Truncated list of search results*\n"
                             else:
                                 markdown += f"{prefix}  - **Output:** {tool_output}\n"
+                        else:
+                            markdown += f"{prefix}- **Tool {idx}:** {tool}\n"
                 elif key in ["status", "question", "chatId", "sessionId", "memoryType", "isStreamValid"]:
-                    # Format metadata fields as key-value pairs
                     markdown += f"{prefix}**{key.capitalize()}:** `{value}`\n"
                 elif isinstance(value, (dict, list)):
-                    # Recursively convert nested objects or arrays
                     nested = self._json_to_markdown(value, depth + 1, prefix + "  - ")
                     markdown += f"{prefix}**{key.capitalize()}:**\n{nested}\n"
                 else:
-                    # Handle primitive values
                     markdown += f"{prefix}**{key.capitalize()}:** `{value}`\n"
             return markdown.strip()
         
@@ -117,8 +187,7 @@ class ResultFormatter:
             if "tool_count" in result:
                 message += f"\n**Tools Available:** `{result['tool_count']}`\n\nRun the following to list them:\n\n{self._markdown_code_block('list', 'bash')}"
             return message
-        else:
-            return f"# ❌ Connection Failed\n\n**Reason:** {result.get('message', 'Connection failed')}"
+        return f"# ❌ Connection Failed\n\n**Reason:** {result.get('message', 'Connection failed')}"
 
     def format_disconnect_result(self, result: Dict[str, Any]) -> str:
         """
@@ -132,8 +201,7 @@ class ResultFormatter:
         """
         if result.get("success", False):
             return f"# ✅ Disconnection Successful\n\n**Message:** {result.get('message', 'Disconnected successfully')}"
-        else:
-            return f"# ❌ Disconnection Failed\n\n**Reason:** {result.get('message', 'Disconnection failed')}"
+        return f"# ❌ Disconnection Failed\n\n**Reason:** {result.get('message', 'Disconnection failed')}"
 
     def format_tool_list(self, tools: List[Any]) -> str:
         """
@@ -154,7 +222,6 @@ class ResultFormatter:
             description = getattr(tool, 'description', tool.get("description", "No description available") if isinstance(tool, dict) else "No description available")
 
             result += f"\n---\n\n## 🔧 `{name}`\n\n**Description:** {description}\n\n"
-
             schema = None
             for attr in ['schema', 'parameters', 'parameter_schema', 'inputSchema']:
                 if hasattr(tool, attr):
@@ -185,24 +252,31 @@ class ResultFormatter:
         result += f"\n---\n\n## 💡 Usage\n\n**Call a tool:**\n{self._markdown_code_block(call_example, 'bash')}\n\n**Shorthand:**\n{self._markdown_code_block(shorthand_example, 'bash')}"
         return result
 
-    def format_tool_call_result(self, result: Dict[str, Any]) -> str:
+    def format_tool_call_result(self, result: Dict[str, Any]) -> Dict[str, str]:
         """
-        Format a tool call result in Markdown with a Markdown summary and full JSON.
+        Format a tool call result into JSON and Markdown representations.
 
         Args:
-            result: The tool call result
+            result: The tool call result dictionary
 
         Returns:
-            Markdown-formatted message
+            A dictionary with 'json' and 'markdown' keys containing formatted outputs
         """
-        if not result.get("success", False):
-            return f"# ❌ Tool Call Failed\n\n**Reason:** {result.get('message', 'Tool call failed')}"
+        output = {"json": "", "markdown": ""}
 
-        tool_result = result.get("result")
+        if not result.get("success", False):
+            markdown = f"# ❌ Tool Call Failed\n\n**Reason:** {result.get('message', 'Tool call failed')}"
+            json_output = {"status": "failed", "message": result.get("message", 'Tool call failed')}
+            output["json"] = json.dumps(json_output, indent=self.indent_size)
+            output["markdown"] = markdown
+            return output
+
+        tool_result = self._handle_text_content(result.get("result", {}))
         if isinstance(tool_result, (dict, list)):
             result_type = "JSON"
             formatted_json = self.format_json(tool_result)
-            markdown_summary = self._json_to_markdown(tool_result)
+            # Use json_to_markdown for the summary table
+            markdown_summary = self.json_to_markdown(tool_result)
             result_display = self._markdown_code_block(formatted_json)
         elif tool_result is None:
             result_type = "None"
@@ -210,35 +284,84 @@ class ResultFormatter:
             result_display = markdown_summary
         else:
             result_type = "Text"
-            markdown_summary = str(tool_result)
-            result_display = markdown_summary
+            # markdown_summary = str(tool_result)
+            # result_display = markdown_summary
 
-        return (
+        markdown = (
             f"# ✅ Tool Call Successful\n\n"
             f"**Result Type:** {result_type}\n\n"
             # f"**Summary:**\n{markdown_summary}\n\n"
             f"**Full Result:**\n{result_display}"
-            
-            
         )
 
-    def format_status(self, status: Dict[str, Any]) -> str:
+        json_output = {
+            "status": "success",
+            "result_type": result_type,
+            # "summary": markdown_summary,
+            "full_result": tool_result
+        }
+
+        try:
+            output["json"] = json.dumps(json_output, indent=self.indent_size)
+        except TypeError as e:
+            logger.error(f"JSON serialization error: {e}")
+            output["json"] = json.dumps({"status": "error", "message": f"Serialization failed: {str(e)}"}, indent=self.indent_size)
+            output["markdown"] = f"# ❌ Serialization Error\n\n**Message:** {str(e)}"
+
+        output["markdown"] = markdown
+        return output
+
+    def format_tool_call_result_json(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Format a tool call result and return as JSON.
+
+        Args:
+            result: The tool call result
+
+        Returns:
+            Dictionary with structured result
+        """
+        if not result.get("success", False):
+            return {
+                "status": "failed",
+                "reason": result.get("message", "Tool call failed")
+            }
+
+        tool_result = self._handle_text_content(result.get("result", {}))
+        if isinstance(tool_result, (dict, list)):
+            result_type = "JSON"
+            formatted_result = tool_result
+        elif tool_result is None:
+            result_type = "None"
+            formatted_result = "No result returned"
+        else:
+            result_type = "Text"
+            formatted_result = str(tool_result)
+
+        return {
+            "status": "success",
+            "result_type": result_type,
+            "summary": self.json_to_markdown(tool_result) if isinstance(tool_result, (dict, list)) else formatted_result,
+            "result": formatted_result
+        }
+
+    def format_status(self, result: Dict[str, Any]) -> str:
         """
         Format a connection status in Markdown.
 
         Args:
-            status: The connection status
+            result: The connection status
 
         Returns:
             Markdown-formatted message
         """
-        if not status.get("connected", False):
-            return f"# 📡 Connection Status\n\n**Status:** Not connected\n\n**Message:** {status.get('message', 'Not connected')}"
+        if not result.get("connected", False):
+            return f"# 📡 Connection Status\n\n**Status:** Not connected\n\n**Message:** {result.get('message', 'Not connected')}"
 
-        message = f"# 📡 Connection Status\n\n**Status:** Connected to `{status.get('url', 'unknown')}`\n"
-        if "tool_count" in status:
-            message += f"\n**Available Tools:** `{status['tool_count']}`\n"
-        message += f"\n**Authentication:** {'Using token' if status.get('has_token', False) else 'None'}"
+        message = f"# 📡 Connection Status\n\n**Status:** Connected to `{result.get('url', 'unknown')}`\n"
+        if "tool_count" in result:
+            message += f"\n**Available Tools:** `{result['tool_count']}`\n"
+        message += f"\n**Authentication:** {'Using token' if result.get('has_token', False) else 'None'}"
         return message
 
     def format_error(self, message: str) -> str:
@@ -304,6 +427,7 @@ class ResultFormatter:
         Returns:
             Formatted JSON string
         """
+        data = self._handle_text_content(data)
         if depth >= self.max_json_depth:
             if isinstance(data, dict) and data:
                 return "{...}"
@@ -471,4 +595,3 @@ class ResultFormatter:
             result += self._markdown_code_block(f"Error formatting schema: {e}")
 
         return result
-    
