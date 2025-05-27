@@ -185,7 +185,7 @@ class ResultFormatter:
         if result.get("success", False):
             message = f"# ✅ Connection Successful\n\n**Message:** {result.get('message', 'Connected successfully')}\n"
             if "tool_count" in result:
-                message += f"\n**Tools Available:** `{result['tool_count']}`\n\nRun the following to list them:\n\n{self._markdown_code_block('list', 'bash')}"
+                message += f"\n**Tools Available:** `{result['tool_count']}`\n\nRun the following to list them:\n\n{self._markdown_code_block('list tools', 'bash')}"
             return message
         return f"# ❌ Connection Failed\n\n**Reason:** {result.get('message', 'Connection failed')}"
 

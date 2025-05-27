@@ -20,7 +20,7 @@ if __name__ == "__main__":
     # Create and start the agent with a specific seed phrase
     agent = MCPClientAgent(
         name="Software Developer Agent",
-        seed="Software Developer Agent",
+        seed="Software Developer",
         port=8000
     )
     
