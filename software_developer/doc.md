@@ -20,7 +20,7 @@ This codebase demonstrates how ** existing MCP server can be converted into a ua
 **Purpose**: Package initialization and exports
 
 ```python
-# Lines 1-8: Package exports
+#  Package exports
 from .agent import MCPClientAgent
 from .command_parser import CommandParser, CommandType, ParsedCommand
 from .session_manager import SessionManager, ServerSession
@@ -50,7 +50,7 @@ def __init__(self, name: str = "software_developer_agent", seed: Optional[str] =
     self.seed = seed
     self.port = port
     
-    # Lines 29-34: Create the uagents Agent with mailbox enabled
+    #  Create the uagents Agent with mailbox enabled
     self.agent = Agent(
         name=name,
         seed=seed,
@@ -58,10 +58,10 @@ def __init__(self, name: str = "software_developer_agent", seed: Optional[str] =
         mailbox=True,
     )
     
-    # Line 37: Fund the agent if needed
+    #  Fund the agent if needed
     fund_agent_if_low(self.agent.wallet.address())
     
-    # Lines 39-47: Initialize MCP components
+    #  Initialize MCP components
     self.result_formatter = ResultFormatter()
     self.mcp_client = MCPClient()
     self.session_manager = SessionManager(self.mcp_client)
@@ -112,14 +112,14 @@ async def process_message(self, message: str, sender: Optional[str] = None) -> s
     """Process a chat message and return a response."""
     logger.info(f"Processing message from {sender or 'unknown'}: {message}")
     
-    # Line 42: Check if the message is a command
+    #  Check if the message is a command
     if not self.command_parser.is_command(message):
         return self._handle_non_command_message(message)
     
-    # Line 45: Parse the command
+    #  Parse the command
     parsed_command = self.command_parser.parse_command(message)
     
-    # Lines 47-60: Handle the command based on its type
+    #  Handle the command based on its type
     if parsed_command.command_type == CommandType.CONNECT:
         return await self._handle_connect_command(parsed_command)
     elif parsed_command.command_type == CommandType.DISCONNECT:
@@ -139,12 +139,12 @@ async def _handle_connect_command(self, command: ParsedCommand) -> str:
     if not command.args:
         return self.result_formatter.format_error("URL is required for connect command")
     
-    # Lines 91-93: Extract connection parameters
+    #  Extract connection parameters
     url = command.args[0]
     token = command.kwargs.get("token")
     token_env_var = command.kwargs.get("token_env_var")
     
-    # Lines 95-97: Execute connection
+    #  Execute connection
     result = await self.session_manager.connect(url, token, token_env_var)
     return self.result_formatter.format_connect_result(result)
 ```
@@ -161,22 +161,22 @@ async def _handle_call_command(self, command: ParsedCommand) -> str:
     if not command.args:
         return self.result_formatter.format_error("Tool name is required for call command")
     
-    # Lines 149-150: Extract tool parameters
+    #  Extract tool parameters
     tool_name = command.args[0]
     args = command.kwargs.get("args", {})
     
     try:
-        # Line 153: Get the tool schema
+        #  Get the tool schema
         schema = await self.session_manager.mcp_client.get_schema(tool_name)
         
-        # Line 155: Validate and auto-fill parameters
+        #  Validate and auto-fill parameters
         validated_args = await self._validate_and_fill_parameters(tool_name, args)
         
-        # Line 158: Call the tool with validated arguments
+        #  Call the tool with validated arguments
         result = await self.session_manager.call_tool(tool_name, validated_args)
         return self.result_formatter.format_tool_call_result(result)
     except ValueError as e:
-        # Lines 161-164: Handle parameter validation errors
+        #  Handle parameter validation errors
         logger.error(f"Parameter validation error for {tool_name}: {e}")
         return self.result_formatter.format_parameter_validation_error(tool_name, str(e),
             await self.session_manager.mcp_client.get_schema(tool_name))
@@ -214,7 +214,7 @@ SCHEMA_PATTERN = r"^schema\s+(\S+)$"
 @chat_proto.on_message(ChatMessage)
 async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
     """Handles incoming chat messages."""
-    # Line 48: Send acknowledgement
+    #  Send acknowledgement
     await ctx.send(
         sender,
         ChatAcknowledgement(
@@ -222,7 +222,7 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
         ),
     )
     
-    # Lines 55-70: Process different content types
+    #  Process different content types
     for item in msg.content:
         if isinstance(item, StartSessionContent):
             logger.info(f"Chat session started with {sender}")
@@ -230,7 +230,7 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
         elif isinstance(item, TextContent):
             logger.info(f"Received chat message from {sender}: {item.text}")
             
-            # Lines 75-85: Check for connect command
+            #  Check for connect command
             connect_match = re.match(CONNECT_PATTERN, text_lower, re.IGNORECASE)
             if connect_match:
                 # Find the same pattern in the original text to preserve case
@@ -271,7 +271,7 @@ def parse_command(self, message: str) -> ParsedCommand:
     if not self.is_command(message):
         return ParsedCommand(CommandType.UNKNOWN, raw_command=message)
     
-    # Lines 68-70: Extract command type
+    #  Extract command type
     parts = message.split(maxsplit=1)
     cmd = parts[0][1:]  # Remove the prefix
     
@@ -291,13 +291,13 @@ def _parse_connect_command(self, message: str) -> ParsedCommand:
     if not match:
         return ParsedCommand(CommandType.UNKNOWN, raw_command=message)
     
-    # Lines 102-105: Parse arguments using shlex to handle quoted strings
+    #  Parse arguments using shlex to handle quoted strings
     try:
         args = shlex.split(match.group(1))
     except ValueError:
         return ParsedCommand(CommandType.UNKNOWN, raw_command=message)
     
-    # Lines 107-118: Extract URL and options
+    #  Extract URL and options
     url = args[0] if args else ""
     kwargs = {}
     
@@ -332,17 +332,17 @@ async def connect(self, url: str, token: Optional[str] = None) -> bool:
     try:
         logger.info(f"Connecting to MCP server at {url}")
         
-        # Lines 36-37: Use SSETransport explicitly for SSE connections
+        #  Use SSETransport explicitly for SSE connections
         transport = SSETransport(url)
         self.client = Client(transport)
         
-        # Line 40: Store the URL for later use
+        #  Store the URL for later use
         self.server_url = url
         
-        # Line 43: Initialize the client using the async context manager
+        #  Initialize the client using the async context manager
         await self.client.__aenter__()
         
-        # Lines 45-46: Test the connection by listing tools
+        #  Test the connection by listing tools
         tools = await self.client.list_tools()
         self.tools = tools
         
@@ -409,11 +409,11 @@ async def list_tools(self) -> List[Dict[str, Any]]:
 ```python
 async def connect(self, url: str, token: Optional[str] = None, token_env_var: Optional[str] = None) -> Dict[str, Any]:
     """Connect to an MCP server."""
-    # Lines 75-77: Disconnect from any existing session
+    # Disconnect from any existing session
     if self.current_session and self.current_session.connected:
         await self.disconnect()
     
-    # Lines 79-85: Get token from environment variable if specified
+    # Get token from environment variable if specified
     actual_token = token
     if token_env_var:
         actual_token = os.environ.get(token_env_var)
@@ -423,10 +423,10 @@ async def connect(self, url: str, token: Optional[str] = None, token_env_var: Op
                 "message": f"Environment variable {token_env_var} not found or empty"
             }
     
-    # Lines 87-88: Create a new session
+    #  Create a new session
     self.current_session = ServerSession(url, self.mcp_client, actual_token)
     
-    # Lines 90-91: Connect to the server
+    #  Connect to the server
     success = await self.current_session.connect()
 ```
 
@@ -442,7 +442,7 @@ async def disconnect(self) -> Dict[str, Any]:
             "message": "Not connected to any server"
         }
     
-    # Lines 115-116: Execute disconnection
+    #  Execute disconnection
     url = self.current_session.url
     success = await self.current_session.disconnect()
     
@@ -481,7 +481,7 @@ def format_tool_call_result(self, result: Dict[str, Any]) -> Dict[str, str]:
         output["markdown"] = markdown
         return output
 
-    # Lines 160-170: Process successful results
+    # Process successful results
     tool_result = self._handle_text_content(result.get("result", {}))
     if isinstance(tool_result, (dict, list)):
         result_type = "JSON"
@@ -537,7 +537,7 @@ def json_to_markdown(self, json_data: Union[str, Dict, List]) -> str:
 ```python
 def get_schema_from_tool(tool: Any, tool_name: str) -> Dict[str, Any]:
     """Extract schema information from a tool object."""
-    # Lines 20-30: Try different attribute names for schema
+    #  Try different attribute names for schema
     if hasattr(tool, 'schema'):
         schema = _extract_schema_value(tool.schema, tool_name, 'schema')
         return _clean_schema(schema)
@@ -561,15 +561,15 @@ def validate_schema_structure(schema: Dict[str, Any]) -> bool:
     if not isinstance(schema, dict):
         return False
     
-    # Line 127: Check for properties field (required for JSON Schema)
+    #  Check for properties field (required for JSON Schema)
     if 'properties' not in schema:
         return False
     
-    # Line 131: Ensure properties is a dictionary
+    #  Ensure properties is a dictionary
     if not isinstance(schema['properties'], dict):
         return False
     
-    # Lines 135-136: If required field exists, ensure it's a list
+    #  If required field exists, ensure it's a list
     if 'required' in schema and not isinstance(schema['required'], list):
         return False
 ```
@@ -586,18 +586,18 @@ def validate_schema_structure(schema: Dict[str, Any]) -> bool:
 **Purpose**: Starts the MCP Client Agent
 
 ```python
-# Lines 10-20: Main execution block
+#  Main execution block
 if __name__ == "__main__":
     logger.info("Starting Software Developer Agent with Chat Protocol support...")
     
-    # Lines 13-17: Create and start the agent with a specific seed phrase
+    # Create and start the agent with a specific seed phrase
     agent = MCPClientAgent(
         name="Software Developer Agent",
         seed="Software Developer",
         port=8000
     )
     
-    # Lines 19-25: Log agent information
+    #  Log agent information
     agent_address = agent.agent.address
     logger.info("=" * 50)
     logger.info(f"AGENT ADDRESS: {agent_address}")
@@ -605,7 +605,7 @@ if __name__ == "__main__":
     logger.info("Use this address in the test client when prompted.")
     
     try:
-        # Line 30: This will block until the agent is stopped
+        #  This will block until the agent is stopped
         agent.start()
     except KeyboardInterrupt:
         logger.info("Stopping MCP Client Agent...")
@@ -622,10 +622,10 @@ if __name__ == "__main__":
 ```python
 # Replace with your MCP server details
 self.agent = Agent(
-    name="your_mcp_agent_name",      # Line 30: Change agent name
-    seed="your_seed",                # Line 31: Change seed
-    port=your_port,                  # Line 32: Change port
-    mailbox=True,                    # Line 33: Keep mailbox enabled
+    name="your_mcp_agent_name",      #  Change agent name
+    seed="your_seed",                # Change seed
+    port=your_port,                  #  Change port
+    mailbox=True,                    #  Keep mailbox enabled
 )
 ```
 
@@ -634,8 +634,8 @@ self.agent = Agent(
 
 ```python
 # Update connection URL for your MCP server
-transport = SSETransport(url)        # Line 36: Your MCP server URL
-self.client = Client(transport)      # Line 37: Create client
+transport = SSETransport(url)        #  Your MCP server URL
+self.client = Client(transport)      #  Create client
 ```
 
 
@@ -644,23 +644,11 @@ self.client = Client(transport)      # Line 37: Create client
 ```python
 # Configure for your specific MCP
 agent = MCPClientAgent(
-    name="Your MCP Agent Name",      # Line 15: Your agent name
-    seed="your_unique_seed",         # Line 16: Your unique seed
-    port=8000                        # Line 17: Your preferred port
+    name="Your MCP Agent Name",      #  Your agent name
+    seed="your_unique_seed",         #  Your unique seed
+    port=8000                        #  Your preferred port
 )
 ```
 
-
-
-
-
-
-## Key Benefits of This Approach
-
-1. **Universal Compatibility**:  MCP server can become a uagent with just 3 line changes
-2. **Natural Language Interface**: Users can interact conversationally via `chat_proto.py`
-3. **Automatic Parameter Validation**: Schema-based validation with auto-fill ( `chat_handler.py`)
-4. **Rich Formatting**: Markdown responses with tables and code blocks (`result_formatter.py`)
-5. **Session Management**: Persistent connections with state tracking (`session_manager.py`)
 
 
